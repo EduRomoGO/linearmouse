@@ -1,0 +1,38 @@
+name: Build unsigned
+on:
+  push:
+    branches:
+      - fix/hover-focus-electron
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - name: Install dependencies
+        run: |
+          brew update
+          brew upgrade swiftformat
+          brew install swiftlint
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Configure
+        # Same bundle version as the installed release, so the updater doesn't offer it again.
+        env:
+          GITHUB_REF: refs/tags/v0.13.0-beta.4
+        run: make configure
+      - name: Lint
+        run: make lint
+      - name: Test
+        run: make test XCODEBUILD_ARGS="CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= DEVELOPMENT_TEAM="
+      - name: Build
+        run: |
+          xcodebuild build -project LinearMouse.xcodeproj -scheme LinearMouse -configuration Release \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= DEVELOPMENT_TEAM=
+          ditto -c -k --keepParent build/DerivedData/Build/Products/Release/LinearMouse.app build/LinearMouse.app.zip
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: LinearMouse.app
+          path: build/LinearMouse.app.zip
+          retention-days: 7
